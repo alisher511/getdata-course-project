@@ -1,5 +1,5 @@
 # Getting and Cleaning Data Course project
-The more detailed description of the code performed on the original data set can be found in Codebook.md in the same repo.
+A detailed description of the code performed on the original data set can be found in Codebook.md in the same repo.
 
 run_analysis.R performs the following steps:
 - creates a directory called 'data' if one doesn't already exist
