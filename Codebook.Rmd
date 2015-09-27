@@ -1,0 +1,165 @@
+---
+title: "CodeBook"
+output: html_document
+---
+Getting and Cleaning Data 
+===============
+**Human Activity Recognition Using Smartphones Data Set**
+
+1. Merging the training and the test sets to create one data set.
+The first step is to get the data. The following code creates a directory called "data" if it 
+        does not already exist, then downloads, stores and unzips the UCI HAR Dataset.
+```{r}
+if (dir.exists("./data") == FALSE) {
+         dir.create("./data")
+         }
+fileUrl <- "https://d396qusza40orc.cloudfront.net/getdata%2Fprojectfiles%2FUCI%20HAR%20Dataset.zip"
+download.file(fileUrl, destfile = "./data/dataset.zip")
+ 
+unzip("./data/dataset.zip", exdir = "./data")
+```
+Basically, there are three major parts that need to be assembled into a single piece.
+        - The first one consists of `X_train.txt` and `X_test.txt`
+                We read the files into R using `read.table()`
+```{r} 
+                dataXtrain <- read.table("./data/UCI HAR Dataset/train/X_train.txt", header = FALSE) 
+                dataXtest <- read.table("./data/UCI HAR Dataset/test/X_test.txt", header = FALSE)
+```
+                We combine the two using `rbind()`
+```{r}
+                combined_X <- rbind(dataXtrain, dataXtest)
+```
+                and name the variables using `features.txt`
+```{r}
+                features_names <- read.table("./data/UCI HAR Dataset/features.txt" , sep = " ", header = FALSE)
+                names(combined_X) <- features_names$V2
+```
+        - The second part is comprised of `Y_train.txt` and `Y_test.txt`. We name this column `activity`
+```{r}
+                dataYtrain <- read.table("./data/UCI HAR Dataset/train/Y_train.txt" , header = FALSE)
+                dataYtest <- read.table("./data/UCI HAR Dataset/test/Y_test.txt" , header = FALSE)
+                combined_Y <- rbind(dataYtrain, dataYtest)
+                names(combined_Y) <- c("activity")
+```
+        - The third part is a `Subject` column. Again, we repeat the same procedure and label the variable as "Subject"
+```{r}
+                subject_train <- read.table("./data/UCI HAR Dataset/train/subject_train.txt" , header = FALSE)
+                subject_test <- read.table("./data/UCI HAR Dataset/test/subject_test.txt" , header = FALSE)
+                combined_subject <- rbind(subject_train, subject_test)
+                names(combined_subject) <- c("Subject")
+```
+Now it's time to join three pieces together using `cbind()`
+```{r}
+combined_XY <- cbind(combined_X, combined_Y) 
+
+mydata <- cbind(combined_XY, combined_subject)
+```
+Check the contents of `mydata`
+```{r}
+str(mydata)
+```
+Remove the objects we no longer need
+```{r}
+rm("dataXtrain", "dataXtest", "dataYtrain", "dataYtest", "subject_train", "subject_test")
+rm("combined_XY", "combined_X", "combined_Y", "combined_subject")
+```
+2. Extracting only the measurements on the mean and standard deviation for each measurement.  
+Using `grep()` function, create two vectors containing only `mean()` and `std()` character strings in `features_names`. In this case, I decided to include `freqMean` and `angle` data as well.
+```{r}
+contains_mean <- grep("mean()", features_names$V2, ignore.case = TRUE, value = TRUE)
+contains_sd <- grep("std()", features_names$V2, ignore.case = TRUE, value = TRUE)
+```
+Create a vector of variable names containing only `mean` and `std` values +"Subject" and "activity". `mean_sd_names_vector` will be used for subsetting `mydata` 
+```{r}
+mean_sd_names_vector <- c(contains_mean, contains_sd, "Subject", "activity")
+```
+Print out the vector
+```{r}
+mean_sd_names_vector
+```
+Subset `mydata` using `mean_sd_names_vector`
+```{r}
+mydata_mean_sd <- subset(mydata, select = mean_sd_names_vector)
+```
+Check the contents
+```{r}
+str(mydata_mean_sd)
+```
+3. Adding descriptive activity names to name the numbered activities in the data set.
+Merging data by `Activity`
+First we need to load `activity_labels.txt` file into R as `data.frame`
+```{r}
+activities_names <- read.table("./data/UCI HAR Dataset/activity_labels.txt", sep=" ", header =FALSE)
+activities_names <- as.data.frame(activities_names)
+```
+We name the two columns as "id" and "Activity"
+```{r}
+names(activities_names) <- c("id", "Activity")
+activities_names
+```
+Now we are ready to `merge()` the two by `activity` and `id`
+```{r}
+mergedData <- merge(mydata_mean_sd, activities_names, by.x = "activity", by.y = "id")
+str(mergedData)
+
+```
+Pull up `dplyr` package and remove the duplicate column `activity` 
+```{r}
+library(dplyr)
+Data <- select(mergedData, -(activity))
+```
+Rearrange the order of `Subject` and `Activity` columns. Check the data.
+```{r}
+Data <- Data[c(87, 88, 1:86)]
+str(Data)
+```
+4. Appropriately labeling the data set with descriptive variable names.
+Change the variable names to make them easier to understand.
+Use function `gsub()`. Reference: http://www.cookbook-r.com/Manipulating_data/Renaming_columns_in_a_data_frame/
+Find variable descriptions in `features_info.txt`. Change "Gyro" to "Gyroscope", "Acc" to "Accelerometer", "tBody" to "TimeBody", "tGravity" to "TimeGravity".
+```{r}
+names(Data) <- gsub("Gyro", "Gyroscope", names(Data))
+names(Data) <- gsub("Acc", "Accelerator", names(Data))
+names(Data) <- gsub("tBody", "TimeBody", names(Data))
+names(Data) <- gsub("tGravity", "TimeGravity", names(Data))
+```
+
+Change "Freq" to "Frequency", "fBody" to "FrequencyBody", "Mag" to "Magnitude", "Jerk" to "Jerk-signal", "BodyBody" to "Body".
+```{r}
+names(Data) <- gsub("Freq", "Frequency", names(Data))
+names(Data) <- gsub("fBody", "FrequencyBody", names(Data))
+names(Data) <- gsub("Mag", "Magnitude", names(Data))
+names(Data) <- gsub("Jerk", "Jerk-signal", names(Data))
+names(Data) <- gsub("BodyBody", "Body", names(Data))
+```
+Rename the axes.
+```{r}
+names(Data) <- gsub("-X", "-X-axis", names(Data))
+names(Data) <- gsub("-Y", "-Y-axis", names(Data))
+names(Data) <- gsub("-Z", "-Z-axis", names(Data))
+```
+Check the names
+```{r}
+names(Data)
+```
+5. Our last step is to produce a tidy dataset with the average of each variable for each activity and each subject.
+Using `group_by` function from `dplyr` we group `Data` by `Subject` and `Activity`.
+```{r}
+groupedData <- group_by(Data, Subject, Activity)
+```
+Using `summarise_each` (Reference: http://stackoverflow.com/questions/21644848/summarizing-multiple-columns-with-dplyr) we apply the `mean()` function to each column of the `Data`.
+```{r}
+tidyData <- summarise_each(groupedData, funs(mean))
+```
+Check `tidyData`
+```{r}
+str(tidyData)
+```
+Then we write the table to a txt file
+```{r}
+write.table(tidyData, file = "tidyData.txt", row.name=FALSE, col.names = TRUE)
+```
+To load the 'tidyData.txt' use 
+```{r}
+tidyData <- read.table("tidyData.txt", header = TRUE)
+```
